@@ -47,6 +47,7 @@ impl<'i> IntoIterator for &'i WalkPlan {
         let tasks = WalkTaskQueue::new(self.depth_first);
         tasks.send_roots(&self.check_list);
         let reject_directory = self.reject_when;
+        let ignore_file = self.ignore_when;
         // let finish_condition = self.finish_when;
         let handler = std::thread::spawn(move || {
             while let Some((path, depth)) = tasks.receive() {
@@ -66,6 +67,9 @@ impl<'i> IntoIterator for &'i WalkPlan {
                                                 result.send_directory(path)
                                             }
                                             false => {
+                                                if ignore_file(dir_entry.file_name()) {
+                                                    continue;
+                                                }
                                                 result.send_file(path);
                                             }
                                         }
