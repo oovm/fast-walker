@@ -1,5 +1,6 @@
+use crate::utils::{to_unix_path, write_unix_path};
 use std::{
-    fmt::{Debug, Display, Formatter, Write},
+    fmt::{Debug, Display, Formatter},
     path::{Path, PathBuf},
 };
 
@@ -31,17 +32,6 @@ impl Display for WalkItem {
             }
         }
     }
-}
-
-fn to_unix_path(path: &Path) -> String {
-    path.to_string_lossy().trim_start_matches("\\\\?\\").replace("\\", "/")
-}
-
-fn write_unix_path(f: &mut Formatter<'_>, path: &Path) -> std::fmt::Result {
-    for c in path.to_string_lossy().trim_start_matches("\\\\?\\").chars() {
-        if c == '\\' { f.write_char('/')? } else { f.write_char(c)? }
-    }
-    Ok(())
 }
 
 impl WalkItem {

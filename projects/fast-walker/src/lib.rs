@@ -1,4 +1,4 @@
-// mod errors;
+pub mod utils;
 
 mod dir_walker;
 mod item;

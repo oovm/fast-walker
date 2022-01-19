@@ -1,6 +1,6 @@
 use crate::WalkItem;
 use std::{
-    ffi::{OsStr, OsString},
+    ffi::OsString,
     path::{Path, PathBuf},
 };
 
