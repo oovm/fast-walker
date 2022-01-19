@@ -1,6 +1,6 @@
 [package]
 name = "fast-walker"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Aster <192607617@qq.com>"]
 description = "Multi-threaded directory walker, with async support"
 repository = "https://github.com/oovm/fast-walker"
