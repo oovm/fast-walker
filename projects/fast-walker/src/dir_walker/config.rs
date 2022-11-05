@@ -3,12 +3,19 @@ use super::*;
 
 impl<'i> IntoIterator for &'i WalkPlan {
     type Item = WalkItem;
-    type IntoIter = BreadthFirstWalker;
+    type IntoIter = WalkSearcher;
 
     fn into_iter(self) -> Self::IntoIter {
-        BreadthFirstWalker {
-            check_list: self.check_list.iter().map(|path| (path.clone(), 0)).collect(),
+        let (task_in, task_out) = channel();
+        for file in &self.check_list {
+            task_in.send((file.clone(), 0)).unwrap();
+        }
+
+        WalkSearcher {
+            check_list: task_in,
+            task_out,
             follow_symlinks: self.follow_symlinks,
+            depth_first: false,
             max_depth: self.max_depth,
 
             reject_directory: self.reject_directory,
