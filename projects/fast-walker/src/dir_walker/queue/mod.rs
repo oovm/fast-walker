@@ -1,5 +1,4 @@
 use super::*;
-use std::sync::LockResult;
 
 #[derive(Clone)]
 pub struct WalkTaskQueue {
@@ -21,15 +20,16 @@ impl WalkTaskQueue {
             }
         }
     }
-    pub fn send(&self, path: &Path, depth: usize) {
+    pub fn send(&self, path: &Path, depth: usize) -> bool {
+        let path = match path.canonicalize() {
+            Ok(o) => o,
+            Err(_) => return false,
+        };
         match self.tasks.lock() {
-            Ok(mut o) => {
-                o.push_front((path.to_path_buf(), depth));
-            }
-            Err(e) => {
-                panic!("{:?}", e)
-            }
+            Ok(mut o) => o.push_front((path, depth)),
+            Err(_) => return false,
         }
+        true
     }
     pub fn receive(&self) -> Option<(PathBuf, usize)> {
         match self.tasks.lock() {

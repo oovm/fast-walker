@@ -1,12 +1,8 @@
 use crate::{dir_walker::queue::WalkTaskQueue, WalkItem};
 use std::{
     collections::VecDeque,
-    fs::{read_dir, DirEntry},
     path::{Path, PathBuf},
-    sync::{
-        mpsc::{channel, sync_channel, Receiver, Sender, TryRecvError},
-        Arc, Mutex,
-    },
+    sync::{mpsc::channel, Arc, Mutex},
 };
 
 mod config;
@@ -35,43 +31,40 @@ impl Iterator for WalkSearcher {
     fn next(&mut self) -> Option<Self::Item> {
         let (tx, rx) = channel();
         let tasks = self.task_queue.clone();
-        std::thread::spawn(| | {
-            while let Some((path, depth)) = self.task_queue.receive() {
-                if depth > self.max_depth || (self.reject_directory)(&path, depth) {
+        let max_depth = self.max_depth;
+        let reject_directory = self.reject_directory;
+        std::thread::spawn(move || {
+            while let Some((path, depth)) = tasks.receive() {
+                if depth > max_depth || reject_directory(&path, depth) {
                     continue;
                 }
                 match std::fs::read_dir(&path) {
                     Ok(read_dir) => {
                         for item in read_dir {
                             match item {
-                                Ok(dir_entry) => {
-                                    match dir_entry.file_type() {
-                                        Ok(file_type) => {
-                                            let path =  dir_entry.path();
-                                            match file_type.is_dir() {
-                                                true => {
-                                                    tasks.send(&path, depth + 1)
-                                                }
-                                                false => {
-                                                    tx.send(WalkItem::file(path, depth + 1)).unwrap();
-                                                }
+                                Ok(dir_entry) => match dir_entry.file_type() {
+                                    Ok(file_type) => {
+                                        let path = dir_entry.path();
+                                        match file_type.is_dir() {
+                                            true => {
+                                                tasks.send(&path, depth + 1);
+                                                tx.send(WalkItem::directory(path)).unwrap();
+                                            }
+                                            false => {
+                                                tx.send(WalkItem::file(path)).unwrap();
                                             }
                                         }
-                                        Err(_) => {}
                                     }
-                                    
-                                }
-                                Err(_) => {}
+                                    Err(e) => tx.send(WalkItem::error(&path, e)).unwrap(),
+                                },
+                                Err(e) => tx.send(WalkItem::error(&path, e)).unwrap(),
                             }
                         }
                     }
-                    Err(e) => {
-                        tx.send(WalkItem::error(path, e)).unwrap();
-                    }
+                    Err(e) => tx.send(WalkItem::error(&path, e)).unwrap(),
                 }
             }
             true
-    
         });
         for out in rx {
             return Some(out);

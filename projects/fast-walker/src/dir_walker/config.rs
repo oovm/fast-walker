@@ -6,11 +6,6 @@ impl<'i> IntoIterator for &'i WalkPlan {
     type IntoIter = WalkSearcher;
 
     fn into_iter(self) -> Self::IntoIter {
-        let (task_in, task_out) = channel();
-        for file in &self.check_list {
-            task_in.send((file.clone(), 0)).unwrap();
-        }
-
         let queue = WalkTaskQueue::new(self.depth_first);
         queue.send_roots(&self.check_list);
         WalkSearcher {
@@ -24,9 +19,8 @@ impl<'i> IntoIterator for &'i WalkPlan {
 
 impl WalkPlan {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        let mut check_list = vec![path.as_ref().to_path_buf()];
         Self {
-            check_list,
+            check_list: vec![path.as_ref().to_path_buf()],
             follow_symlinks: false,
             depth_first: false,
             max_depth: usize::MAX,
