@@ -1,5 +1,5 @@
-use crate::WalkItem;
 use super::*;
+use crate::WalkItem;
 
 impl<'i> IntoIterator for &'i WalkPlan {
     type Item = WalkItem;
@@ -11,18 +11,16 @@ impl<'i> IntoIterator for &'i WalkPlan {
             task_in.send((file.clone(), 0)).unwrap();
         }
 
+        let queue = WalkTaskQueue::new(self.depth_first);
+        queue.send_roots(&self.check_list);
         WalkSearcher {
-            check_list: task_in,
-            task_out,
+            task_queue: queue,
             follow_symlinks: self.follow_symlinks,
-            depth_first: false,
             max_depth: self.max_depth,
-
             reject_directory: self.reject_directory,
         }
     }
 }
-
 
 impl WalkPlan {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {

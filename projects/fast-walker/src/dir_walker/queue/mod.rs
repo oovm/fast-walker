@@ -1,11 +1,9 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::{Arc, LockResult, Mutex},
-};
+use super::*;
+use std::sync::LockResult;
 
 #[derive(Clone)]
 pub struct WalkTaskQueue {
-    tasks: Arc<Mutex<(PathBuf, usize)>>,
+    tasks: Arc<Mutex<VecDeque<(PathBuf, usize)>>>,
     depth_first: bool,
 }
 
@@ -13,20 +11,29 @@ impl WalkTaskQueue {
     pub fn new(depth_first: bool) -> Self {
         Self { tasks: Arc::new(Mutex::default()), depth_first }
     }
-    pub fn send(&self, path: &Path, depth: usize) -> bool {
+    pub fn send_roots(&self, paths: &[PathBuf]) {
         match self.tasks.lock() {
-            Ok(o) => {
-                o.push((path.to_path_buf(), depth));
+            Ok(mut o) => {
+                o.extend(paths.iter().map(|p| (p.to_path_buf(), 0)));
             }
             Err(e) => {
                 panic!("{:?}", e)
             }
         }
-        true
     }
-    pub fn next(&self) -> Option<(PathBuf, usize)> {
+    pub fn send(&self, path: &Path, depth: usize) {
         match self.tasks.lock() {
-            Ok(o) => {
+            Ok(mut o) => {
+                o.push_front((path.to_path_buf(), depth));
+            }
+            Err(e) => {
+                panic!("{:?}", e)
+            }
+        }
+    }
+    pub fn receive(&self) -> Option<(PathBuf, usize)> {
+        match self.tasks.lock() {
+            Ok(mut o) => {
                 if self.depth_first {
                     o.pop_front()
                 }

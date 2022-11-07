@@ -1,9 +1,13 @@
-use std::collections::VecDeque;
-use std::fs::{DirEntry, read_dir};
-use std::path::{Path, PathBuf};
-use std::sync::mpsc::{channel, Receiver, Sender, sync_channel, TryRecvError};
-use std::sync::{Arc, Mutex};
-use crate::WalkItem;
+use crate::{dir_walker::queue::WalkTaskQueue, WalkItem};
+use std::{
+    collections::VecDeque,
+    fs::{read_dir, DirEntry},
+    path::{Path, PathBuf},
+    sync::{
+        mpsc::{channel, sync_channel, Receiver, Sender, TryRecvError},
+        Arc, Mutex,
+    },
+};
 
 mod config;
 
@@ -19,37 +23,62 @@ pub struct WalkPlan {
 }
 
 pub struct WalkSearcher {
-    check_list: VecDeque<(PathBuf, usize)>,
+    task_queue: WalkTaskQueue,
     follow_symlinks: bool,
-
     max_depth: usize,
     reject_directory: fn(&Path, usize) -> bool,
 }
-
-
-
-
-impl WalkSearcher {
-    fn search_next(&mut self) -> Option<(PathBuf, usize)> {
-        if self.depth_first {
-            self.check_list.pop_front()
-        } else {
-            self.check_list.pop_back()
-        }
-    }
-}
-
 
 impl Iterator for WalkSearcher {
     type Item = WalkItem;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((dir, depth)) = self.search_next() {
-
+        let (tx, rx) = channel();
+        let tasks = self.task_queue.clone();
+        std::thread::spawn(| | {
+            while let Some((path, depth)) = self.task_queue.receive() {
+                if depth > self.max_depth || (self.reject_directory)(&path, depth) {
+                    continue;
+                }
+                match std::fs::read_dir(&path) {
+                    Ok(read_dir) => {
+                        for item in read_dir {
+                            match item {
+                                Ok(dir_entry) => {
+                                    match dir_entry.file_type() {
+                                        Ok(file_type) => {
+                                            let path =  dir_entry.path();
+                                            match file_type.is_dir() {
+                                                true => {
+                                                    tasks.send(&path, depth + 1)
+                                                }
+                                                false => {
+                                                    tx.send(WalkItem::file(path, depth + 1)).unwrap();
+                                                }
+                                            }
+                                        }
+                                        Err(_) => {}
+                                    }
+                                    
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tx.send(WalkItem::error(path, e)).unwrap();
+                    }
+                }
+            }
+            true
+    
+        });
+        for out in rx {
+            return Some(out);
         }
+        None
     }
 }
-
 
 #[test]
 fn test() {
