@@ -1,4 +1,4 @@
-mod errors;
+// mod errors;
 
 mod dir_walker;
 mod item;

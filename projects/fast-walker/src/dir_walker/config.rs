@@ -1,5 +1,32 @@
 use super::*;
-use crate::WalkItem;
+
+impl WalkPlan {
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            check_list: vec![path.as_ref().to_path_buf()],
+            follow_symlinks: false,
+            depth_first: false,
+            threads: 8,
+            reject_directory: |_, _| false,
+        }
+    }
+    pub fn with_breadth_first(mut self) -> Self {
+        self.depth_first = false;
+        self
+    }
+    pub fn with_depth_first(mut self) -> Self {
+        self.depth_first = true;
+        self
+    }
+    pub fn with_threads(mut self, threads: usize) -> Self {
+        self.threads = threads;
+        self
+    }
+    pub fn reject_if(mut self, f: fn(&Path, usize) -> bool) -> Self {
+        self.reject_directory = f;
+        self
+    }
+}
 
 impl<'i> IntoIterator for &'i WalkPlan {
     type Item = WalkItem;
@@ -7,13 +34,13 @@ impl<'i> IntoIterator for &'i WalkPlan {
 
     fn into_iter(self) -> Self::IntoIter {
         let result = WalkResultQueue::new();
+        let result_queue = result.clone();
         let tasks = WalkTaskQueue::new(self.depth_first);
         tasks.send_roots(&self.check_list);
-        let max_depth = self.max_depth;
         let reject_directory = self.reject_directory;
-        std::thread::spawn(move || {
+        let handler = std::thread::spawn(move || {
             while let Some((path, depth)) = tasks.receive() {
-                if depth > max_depth || reject_directory(&path, depth) {
+                if reject_directory(&path, depth) {
                     continue;
                 }
                 match std::fs::read_dir(&path) {
@@ -42,21 +69,8 @@ impl<'i> IntoIterator for &'i WalkPlan {
                     Err(e) => result.send_error(path, e),
                 }
             }
-            true
         });
-        WalkSearcher { result_queue: result }
-    }
-}
-
-impl WalkPlan {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            check_list: vec![path.as_ref().to_path_buf()],
-            follow_symlinks: false,
-            depth_first: false,
-            max_depth: usize::MAX,
-            threads: 8,
-            reject_directory: |_, _| false,
-        }
+        handler.join().unwrap();
+        WalkSearcher { result_queue }
     }
 }

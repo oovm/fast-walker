@@ -2,7 +2,7 @@ use crate::{WalkItem, WalkResultQueue, WalkTaskQueue};
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
-    sync::{mpsc::channel, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 mod config;
@@ -10,11 +10,15 @@ mod config;
 pub mod queue;
 
 pub struct WalkPlan {
+    /// Initial paths to search
     pub check_list: Vec<PathBuf>,
+    /// Follow symlinks
     pub follow_symlinks: bool,
+    /// Depth first search or breadth first search
     pub depth_first: bool,
-    pub max_depth: usize,
+    /// Number of threads to use
     pub threads: usize,
+    /// Check if a directory should be rejected
     pub reject_directory: fn(&Path, usize) -> bool,
 }
 
@@ -33,7 +37,8 @@ impl Iterator for WalkSearcher {
 #[test]
 fn test() {
     let project = "C:\\P4Root\\project\\OtherPlanet";
-    for item in WalkPlan::new(project).into_iter().take(10) {
+    let plan = WalkPlan::new(project).with_depth_first().reject_if(|path, _| path.starts_with("."));
+    for item in plan.into_iter().take(100) {
         println!("{:?}", item);
     }
 }
