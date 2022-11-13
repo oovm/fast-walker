@@ -2,14 +2,15 @@
 name = "fast-walker"
 version = "0.0.0"
 authors = ["Aster <192607617@qq.com>"]
-description = "..."
-repository = "https://github.com/oovm/sub_projects"
-documentation = "https://docs.rs/sub_projects"
-readme = "Readme.md"
+description = "Multi-threaded directory walker, with async support"
+repository = "https://github.com/oovm/fast-walker"
+documentation = "https://docs.rs/fast-walker"
+readme = "readme.md"
 license = "MPL-2.0"
 edition = "2021"
 
 [dependencies]
+tokio = { version = "1.26.0" }
 
 [dev-dependencies]
 

@@ -9,6 +9,7 @@ pub struct WalkTaskQueue {
 #[derive(Clone)]
 pub struct WalkResultQueue {
     results: Arc<Mutex<VecDeque<WalkItem>>>,
+    stopped: Arc<Mutex<bool>>,
 }
 
 impl WalkTaskQueue {
@@ -55,7 +56,7 @@ impl WalkTaskQueue {
 
 impl WalkResultQueue {
     pub fn new() -> Self {
-        Self { results: Arc::new(Mutex::default()) }
+        Self { results: Arc::new(Mutex::default()), stopped: Arc::new(Mutex::new(false)) }
     }
 
     pub fn send_file(&self, path: PathBuf) {

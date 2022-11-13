@@ -1,45 +1,26 @@
 use super::*;
+use std::task::Poll;
 
-impl WalkPlan {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            check_list: vec![path.as_ref().to_path_buf()],
-            follow_symlinks: false,
-            depth_first: false,
-            threads: 8,
-            reject_directory: |_, _| false,
-        }
-    }
-    pub fn with_breadth_first(mut self) -> Self {
-        self.depth_first = false;
-        self
-    }
-    pub fn with_depth_first(mut self) -> Self {
-        self.depth_first = true;
-        self
-    }
-    pub fn with_threads(mut self, threads: usize) -> Self {
-        self.threads = threads;
-        self
-    }
-    pub fn reject_if(mut self, f: fn(&Path, usize) -> bool) -> Self {
-        self.reject_directory = f;
-        self
-    }
+pub struct WalkSearcher {
+    result_queue: WalkResultQueue,
 }
 
-impl<'i> IntoIterator for &'i WalkPlan {
-    type Item = WalkItem;
-    type IntoIter = WalkSearcher;
+impl Stream for WalkSearcher {}
 
-    fn into_iter(self) -> Self::IntoIter {
+impl<'i> IntoStream for &'i WalkPlan {
+    type Item = WalkItem;
+    type Error = std::io::Error;
+    type Stream = WalkSearcher;
+
+    fn into_stream(self) -> Self::Stream {
         let result = WalkResultQueue::new();
         let result_queue = result.clone();
         let tasks = WalkTaskQueue::new(self.depth_first);
         tasks.send_roots(&self.check_list);
-        let reject_directory = self.reject_directory;
-        let handler = std::thread::spawn(move || {
-            while let Some((path, depth)) = tasks.receive() {
+        let reject_directory = self.reject_when;
+        // let finish_condition = self.finish_when;
+        let handler = tokio::spawn(async move {
+            while let Some((path, depth)) = tasks.receive().await {
                 if reject_directory(&path, depth) {
                     continue;
                 }
@@ -70,7 +51,6 @@ impl<'i> IntoIterator for &'i WalkPlan {
                 }
             }
         });
-        handler.join().unwrap();
         WalkSearcher { result_queue }
     }
 }

@@ -5,8 +5,9 @@ mod item;
 
 pub use crate::{
     dir_walker::{
-        queue::{WalkResultQueue, WalkTaskQueue},
-        WalkPlan, WalkSearcher,
+        iterators::WalkSearcher,
+        sync_iter::{WalkResultQueue, WalkTaskQueue},
+        WalkPlan,
     },
     item::WalkItem,
 };

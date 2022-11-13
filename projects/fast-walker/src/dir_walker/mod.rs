@@ -5,9 +5,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-mod config;
+pub mod iterators;
 
-pub mod queue;
+pub mod sync_iter;
+#[cfg(feature = "tokio")]
+pub mod tokio_iter;
 
 pub struct WalkPlan {
     /// Initial paths to search
@@ -19,26 +21,40 @@ pub struct WalkPlan {
     /// Number of threads to use
     pub threads: usize,
     /// Check if a directory should be rejected
-    pub reject_directory: fn(&Path, usize) -> bool,
+    pub reject_when: fn(&Path, usize) -> bool,
+    /// Stop if a item matches the condition
+    pub finish_when: fn(&WalkItem) -> bool,
 }
 
-pub struct WalkSearcher {
-    result_queue: WalkResultQueue,
-}
-
-impl Iterator for WalkSearcher {
-    type Item = WalkItem;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.result_queue.receive()
+impl WalkPlan {
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            check_list: vec![path.as_ref().to_path_buf()],
+            follow_symlinks: false,
+            depth_first: false,
+            threads: 8,
+            reject_when: |_, _| false,
+            finish_when: |_| false,
+        }
     }
-}
-
-#[test]
-fn test() {
-    let project = "C:\\P4Root\\project\\OtherPlanet";
-    let plan = WalkPlan::new(project).with_depth_first().reject_if(|path, _| path.starts_with("."));
-    for item in plan.into_iter().take(100) {
-        println!("{:?}", item);
+    pub fn breadth_first_search(mut self) -> Self {
+        self.depth_first = false;
+        self
+    }
+    pub fn depth_first_search(mut self) -> Self {
+        self.depth_first = true;
+        self
+    }
+    pub fn with_threads(mut self, threads: usize) -> Self {
+        self.threads = threads;
+        self
+    }
+    pub fn reject_if(mut self, f: fn(&Path, usize) -> bool) -> Self {
+        self.reject_when = f;
+        self
+    }
+    pub fn stop_if(mut self, f: fn(&WalkItem) -> bool) -> Self {
+        self.finish_when = f;
+        self
     }
 }
