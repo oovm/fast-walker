@@ -1,4 +1,12 @@
-use super::*;
+use crate::WalkItem;
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
+mod result;
+mod task;
+use crate::WalkPlan;
 
 #[derive(Clone)]
 pub struct WalkTaskQueue {
@@ -8,91 +16,70 @@ pub struct WalkTaskQueue {
 
 #[derive(Clone)]
 pub struct WalkResultQueue {
-    results: Arc<Mutex<VecDeque<WalkItem>>>,
-    stopped: Arc<Mutex<bool>>,
+    state: Arc<Mutex<WalkResultState>>,
 }
 
-impl WalkTaskQueue {
-    pub fn new(depth_first: bool) -> Self {
-        Self { tasks: Arc::new(Mutex::default()), depth_first }
-    }
-    pub fn send_roots(&self, paths: &[PathBuf]) {
-        match self.tasks.lock() {
-            Ok(mut o) => {
-                o.extend(paths.iter().map(|p| (p.to_path_buf(), 0)));
-            }
-            Err(e) => {
-                panic!("{:?}", e)
-            }
-        }
-    }
-    pub fn send(&self, path: &Path, depth: usize) -> bool {
-        let path = match path.canonicalize() {
-            Ok(o) => o,
-            Err(_) => return false,
-        };
-        match self.tasks.lock() {
-            Ok(mut o) => o.push_front((path, depth)),
-            Err(_) => return false,
-        }
-        true
-    }
-    pub fn receive(&self) -> Option<(PathBuf, usize)> {
-        match self.tasks.lock() {
-            Ok(mut o) => {
-                if self.depth_first {
-                    o.pop_front()
-                }
-                else {
-                    o.pop_back()
-                }
-            }
-            Err(e) => {
-                panic! { "{:?}", e }
-            }
-        }
+pub struct WalkResultState {
+    results: VecDeque<WalkItem>,
+    stopped: bool,
+}
+
+pub struct WalkSearcher {
+    result_queue: WalkResultQueue,
+}
+
+impl Iterator for WalkSearcher {
+    type Item = WalkItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.result_queue.receive()
     }
 }
 
-impl WalkResultQueue {
-    pub fn new() -> Self {
-        Self { results: Arc::new(Mutex::default()), stopped: Arc::new(Mutex::new(false)) }
-    }
+impl<'i> IntoIterator for &'i WalkPlan {
+    type Item = WalkItem;
+    type IntoIter = WalkSearcher;
 
-    pub fn send_file(&self, path: PathBuf) {
-        match self.results.lock() {
-            Ok(mut o) => {
-                o.push_back(WalkItem::File { path });
+    fn into_iter(self) -> Self::IntoIter {
+        let result = WalkResultQueue::new();
+        let result_queue = result.clone();
+        let tasks = WalkTaskQueue::new(self.depth_first);
+        tasks.send_roots(&self.check_list);
+        let reject_directory = self.reject_when;
+        // let finish_condition = self.finish_when;
+        let handler = std::thread::spawn(move || {
+            while let Some((path, depth)) = tasks.receive() {
+                if reject_directory(&path, depth) {
+                    continue;
+                }
+                match std::fs::read_dir(&path) {
+                    Ok(read_dir) => {
+                        for item in read_dir {
+                            match item {
+                                Ok(dir_entry) => match dir_entry.file_type() {
+                                    Ok(file_type) => {
+                                        let path = dir_entry.path();
+                                        match file_type.is_dir() {
+                                            true => {
+                                                tasks.send(&path, depth + 1);
+                                                result.send_directory(path)
+                                            }
+                                            false => {
+                                                result.send_file(path);
+                                            }
+                                        }
+                                    }
+                                    Err(e) => result.send_error(path.clone(), e),
+                                },
+                                Err(e) => result.send_error(path.clone(), e),
+                            }
+                        }
+                    }
+                    Err(e) => result.send_error(path, e),
+                }
             }
-            Err(e) => {
-                panic! { "{:?}", e }
-            }
-        }
-    }
-    pub fn send_directory(&self, path: PathBuf) {
-        match self.results.lock() {
-            Ok(mut o) => {
-                o.push_back(WalkItem::Directory { path });
-            }
-            Err(e) => {
-                panic! { "{:?}", e }
-            }
-        }
-    }
-    pub fn send_error(&self, directory: PathBuf, error: std::io::Error) {
-        match self.results.lock() {
-            Ok(mut o) => {
-                o.push_back(WalkItem::Error { directory, error });
-            }
-            Err(_) => {}
-        }
-    }
-    pub fn receive(&self) -> Option<WalkItem> {
-        match self.results.lock() {
-            Ok(mut o) => o.pop_front(),
-            Err(e) => {
-                panic! { "{:?}", e }
-            }
-        }
+        });
+        handler.join().unwrap();
+        WalkSearcher { result_queue }
     }
 }

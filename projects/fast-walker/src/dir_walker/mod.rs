@@ -1,11 +1,9 @@
-use crate::{WalkItem, WalkResultQueue, WalkTaskQueue};
+use crate::WalkItem;
 use std::{
-    collections::VecDeque,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-};
 
-pub mod iterators;
+    path::{Path, PathBuf},
+
+};
 
 pub mod sync_iter;
 #[cfg(feature = "tokio")]
