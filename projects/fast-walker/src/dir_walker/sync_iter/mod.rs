@@ -21,6 +21,7 @@ pub struct WalkResultQueue {
 
 pub struct WalkResultState {
     results: VecDeque<WalkItem>,
+    finish_condition: fn(&WalkItem) -> bool,
     stopped: bool,
 }
 
@@ -41,7 +42,7 @@ impl<'i> IntoIterator for &'i WalkPlan {
     type IntoIter = WalkSearcher;
 
     fn into_iter(self) -> Self::IntoIter {
-        let result = WalkResultQueue::new();
+        let result = WalkResultQueue::new(self.finish_when);
         let result_queue = result.clone();
         let tasks = WalkTaskQueue::new(self.depth_first);
         tasks.send_roots(&self.check_list);
