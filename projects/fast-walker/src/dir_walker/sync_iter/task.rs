@@ -35,9 +35,7 @@ impl WalkTaskQueue {
                     o.pop_back()
                 }
             }
-            Err(e) => {
-                panic! { "{:?}", e }
-            }
+            Err(e) => panic!("{:?}", e),
         }
     }
 }
