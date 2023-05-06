@@ -1,3 +1,4 @@
+use std::sync::mpsc::sync_channel;
 use super::*;
 
 impl WalkResultQueue {

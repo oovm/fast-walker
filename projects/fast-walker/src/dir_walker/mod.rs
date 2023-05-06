@@ -15,6 +15,8 @@ pub struct WalkPlan {
     pub follow_symlinks: bool,
     /// Depth first search or breadth first search
     pub depth_first: bool,
+    /// Max number of items in the queue
+    pub capacity: usize,
     /// Number of threads to use
     pub threads: usize,
     /// Check if a directory should be rejected
@@ -30,6 +32,7 @@ impl Default for WalkPlan {
             check_list: vec![],
             follow_symlinks: false,
             depth_first: false,
+            capacity: 256,
             threads: 8,
             reject_when: |_, _| false,
             ignore_when: |_| false,
