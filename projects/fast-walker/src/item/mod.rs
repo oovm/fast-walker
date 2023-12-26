@@ -1,10 +1,12 @@
 use std::{
     fmt::{Debug, Display, Formatter},
     fs::DirEntry,
+    path::PathBuf,
 };
 
+#[derive(Clone, Debug)]
 pub struct WalkItem {
-    raw: DirEntry,
+    raw: PathBuf,
 }
 
 // impl Debug for WalkItem {
@@ -33,8 +35,8 @@ impl Display for WalkItem {
 }
 
 impl WalkItem {
-    pub fn new(raw: DirEntry) -> WalkItem {
-        WalkItem { raw }
+    pub fn new(raw: PathBuf) -> Self {
+        Self { raw }
     }
 
     // pub fn file<P: AsRef<Path>>(path: P) -> Self {

@@ -1,3 +1,4 @@
+use crate::WalkItem;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -26,12 +27,6 @@ pub struct WalkPlan {
     pub ignore_when: fn(OsString) -> bool,
     /// Stop if a item matches the condition
     pub finish_when: fn(&WalkItem) -> bool,
-}
-
-pub enum WalkItem {
-    File { path: PathBuf },
-    Directory { path: PathBuf },
-    Error { path: PathBuf, error: std::io::Error },
 }
 
 impl Default for WalkPlan {
