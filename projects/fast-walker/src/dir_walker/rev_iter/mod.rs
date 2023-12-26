@@ -1,12 +1,11 @@
 use super::*;
-use crate::{dir_walker::sync_iter::LinearWalker, WalkError};
 
 impl WalkPlan {
-    pub fn reversed(self) -> AncestorWalker {
+    pub fn ancestors(&self) -> AncestorWalker {
         AncestorWalker {
             config: self,
             tasks: self.check_list.iter().map(|s| WalkItem::from(s.as_path())).collect(),
-            results: vec![],
+            results: self.check_list.iter().map(|s| WalkItem::from(s.as_path())).collect(),
         }
     }
 }
@@ -24,7 +23,7 @@ impl<'i> AncestorWalker<'i> {
     fn read_item(&mut self, entry: WalkItem) {
         if (self.config.finish_when)(&entry) {
             self.tasks.clear();
-            self.results.push(Ok(entry));
+            self.results.push(entry);
             return;
         }
         self.read_directory(entry);
@@ -33,55 +32,30 @@ impl<'i> AncestorWalker<'i> {
         if (self.config.ignore_when)(&entry) {
             return;
         }
-        match entry.read_directory() {
-            Ok(dir) => {
-                for result in dir {
-                    match result {
-                        Ok(child) => {
-                            self.tasks.push_back(WalkItem::from(child).with_depth(entry.depth + 1));
-                        }
-                        Err(e) => {
-                            self.results.push(Err(WalkError::io_error(entry.path.clone(), e)));
-                            continue;
-                        }
-                    }
-                }
+        match entry.path.parent() {
+            Some(dir) => {
+                let parent = WalkItem::from(dir).with_depth(entry.depth - 1);
+                self.results.push(parent.clone());
+                self.tasks.push_back(parent);
             }
-            Err(e) => {
-                self.results.push(Err(WalkError::io_error(entry.path, e)));
-            }
+            None => {}
         }
     }
 }
 
-impl Iterator for AncestorWalker {
+impl<'i> Iterator for AncestorWalker<'i> {
     type Item = WalkItem;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.results.pop() {
-            Some(s) => {
-                return Some(s);
-            }
-            None => {
-                if self.tasks.is_empty() {
-                    return None;
+            Some(s) => return Some(s),
+            None => match self.pop() {
+                Some(s) => {
+                    self.read_item(s);
+                    self.next()
                 }
-                let entry = self.tasks.pop_front().unwrap();
-                if (self.config.finish_when)(&entry) {
-                    self.tasks.clear();
-                    return Some(entry);
-                }
-                if entry.path.is_symlink() {
-                    self.read_link(entry);
-                    return self.next();
-                }
-                if entry.is_directory() {
-                    self.read_directory(entry);
-                    return self.next();
-                }
-                self.read_file(entry);
-                return self.next();
-            }
+                None => None,
+            },
         }
     }
 }

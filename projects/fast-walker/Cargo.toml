@@ -1,6 +1,6 @@
 [package]
 name = "fast-walker"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Aster <192607617@qq.com>"]
 description = "Multi-threaded directory walker, with async support"
 repository = "https://github.com/oovm/fast-walker"
@@ -11,7 +11,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.26.0", optional = true }
-rayon = { version = "1.8.0", features = [] }
+rayon = { version = "1.8.0", optional = true }
 
 [dev-dependencies]
 

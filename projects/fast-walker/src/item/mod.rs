@@ -1,7 +1,6 @@
 use std::{
     fmt::{Debug, Display, Formatter},
     fs::{DirEntry, File, ReadDir},
-    ops::Add,
     path::PathBuf,
 };
 
@@ -10,7 +9,7 @@ mod convert;
 #[derive(Clone, Debug)]
 pub struct WalkItem {
     pub path: PathBuf,
-    pub depth: usize,
+    pub depth: i16,
 }
 
 impl Display for WalkItem {
@@ -23,7 +22,7 @@ impl WalkItem {
     pub fn new(raw: PathBuf) -> Self {
         Self { path: raw, depth: 0 }
     }
-    pub fn with_depth(self, depth: usize) -> Self {
+    pub fn with_depth(self, depth: i16) -> Self {
         Self { depth, ..self }
     }
     pub fn is_link(&self) -> bool {

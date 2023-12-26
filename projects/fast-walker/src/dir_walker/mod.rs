@@ -1,14 +1,14 @@
-use crate::WalkItem;
+use crate::{WalkError, WalkItem};
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
 };
-
 pub mod rev_iter;
 pub mod sync_iter;
 #[cfg(feature = "tokio")]
 pub mod tokio_iter;
 
+/// Start a directory walk plan
 #[derive(Clone)]
 pub struct WalkPlan {
     /// Initial paths to search

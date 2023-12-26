@@ -1,13 +1,13 @@
 use super::*;
 use std::path::Path;
 
-impl Add<usize> for WalkItem {
-    type Output = Self;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        Self { depth: self.depth + rhs, ..self }
-    }
-}
+// impl Add<isize> for WalkItem {
+//     type Output = Self;
+//
+//     fn add(self, rhs: isize) -> Self::Output {
+//         Self { depth: self.depth + rhs, ..self }
+//     }
+// }
 impl<'i> From<&'i Path> for WalkItem {
     fn from(value: &Path) -> Self {
         Self { path: value.to_path_buf(), depth: 0 }

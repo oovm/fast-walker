@@ -33,6 +33,7 @@ pub fn path_info(entry: std::io::Result<DirEntry>) -> std::io::Result<(PathBuf, 
     Ok((entry.path().canonicalize()?, name))
 }
 
+#[allow(dead_code)]
 pub(crate) fn write_unix_path(f: &mut Formatter<'_>, path: &Path) -> std::fmt::Result {
     for c in path.to_string_lossy().trim_start_matches("\\\\?\\").chars() {
         if c == '\\' { f.write_char('/')? } else { f.write_char(c)? }

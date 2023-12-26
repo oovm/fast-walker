@@ -1,8 +1,5 @@
 use super::*;
 
-use crate::WalkError;
-use std::{collections::VecDeque, path::PathBuf};
-
 impl<'i> IntoIterator for &'i WalkPlan {
     type Item = Result<WalkItem, WalkError>;
     type IntoIter = LinearWalker<'i>;
