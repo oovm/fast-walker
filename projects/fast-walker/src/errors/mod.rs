@@ -2,6 +2,16 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct WalkError {
-    pub path: PathBuf,
-    pub error: std::io::Error,
+    kind: Box<WalkErrorKind>,
+}
+
+#[derive(Debug)]
+pub enum WalkErrorKind {
+    IO { path: PathBuf, error: std::io::Error },
+}
+
+impl WalkError {
+    pub fn io_error(path: PathBuf, error: std::io::Error) -> Self {
+        Self { kind: Box::new(WalkErrorKind::IO { path, error }) }
+    }
 }

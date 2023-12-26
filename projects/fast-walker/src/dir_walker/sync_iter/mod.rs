@@ -8,7 +8,12 @@ impl<'i> IntoIterator for &'i WalkPlan {
     type IntoIter = LinearWalker<'i>;
 
     fn into_iter(self) -> Self::IntoIter {
-        LinearWalker { config: &self, tasks: self.check_list.clone().into_iter().collect(), results: vec![], found_files: 0 }
+        LinearWalker {
+            config: &self,
+            tasks: self.check_list.clone().into_iter().map(Into::into).collect(),
+            results: vec![],
+            found_files: 0,
+        }
     }
 }
 
@@ -22,24 +27,50 @@ pub struct LinearWalker<'i> {
 impl<'i> LinearWalker<'i> {}
 
 impl<'i> LinearWalker<'i> {
-    fn pop(&mut self) -> Option<PathBuf> {
+    fn pop(&mut self) -> Option<WalkItem> {
         if self.config.depth_first { self.tasks.pop_back() } else { self.tasks.pop_front() }
     }
-    fn walk_through(&mut self, entry: PathBuf) {
-        if entry.is_file() {
-            self.found_files += 1;
-            self.results.push(Ok(WalkItem::new(entry)));
+    fn read_item(&mut self, entry: WalkItem) {
+        if entry.path.is_symlink() {
+            self.read_link(entry);
             return;
         }
-        'inner: for entry in entry.read_dir().unwrap() {
-            match entry {
-                Ok(child) => {
-                    self.tasks.push_back(child.path());
+        if entry.is_directory() {
+            self.read_directory(entry);
+            return;
+        }
+        self.found_files += 1;
+        self.results.push(Ok(entry));
+    }
+    fn read_link(&mut self, entry: WalkItem) {
+        if self.config.follow_symlinks {
+            match entry.read_link() {
+                Ok(o) => {
+                    self.tasks.push_back(WalkItem::from(o).with_depth(entry.depth + 1));
                 }
                 Err(e) => {
-                    // self.results.push(Err(WalkError::new(path.clone(), e)));
-                    continue 'inner;
+                    self.results.push(Err(WalkError::io_error(entry.path, e)));
                 }
+            }
+        }
+    }
+    fn read_directory(&mut self, entry: WalkItem) {
+        match entry.read_directory() {
+            Ok(dir) => {
+                for result in dir {
+                    match result {
+                        Ok(child) => {
+                            self.tasks.push_back(WalkItem::from(child).with_depth(entry.depth + 1));
+                        }
+                        Err(e) => {
+                            self.results.push(Err(WalkError::io_error(entry.path.clone(), e)));
+                            continue;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                self.results.push(Err(WalkError::io_error(entry.path, e)));
             }
         }
     }
@@ -55,7 +86,7 @@ impl<'i> Iterator for LinearWalker<'i> {
             }
             None => match self.pop() {
                 Some(s) => {
-                    self.walk_through(s);
+                    self.read_item(s);
                     self.next()
                 }
                 None => None,
@@ -69,10 +100,10 @@ fn run() {
     let plan = WalkPlan {
         check_list: vec![
             PathBuf::from(r#"C:\Users\Dell\CLionProjects\fast-walker"#),
-            // PathBuf::from(r#"C:\Users\Dell\CLionProjects\fast-walker\projects\"#),
+            PathBuf::from(r#"C:\Users\Dell\CLionProjects\faster-pest"#),
         ],
         follow_symlinks: true,
-        depth_first: false,
+        depth_first: true,
         capacity: 4,
         threads: 4,
         reject_when: |_, _| false,

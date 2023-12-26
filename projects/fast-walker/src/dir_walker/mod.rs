@@ -24,7 +24,7 @@ pub struct WalkPlan {
     /// Check if a directory should be rejected
     pub reject_when: fn(&Path, usize) -> bool,
     /// Ignore a file if it matches the condition
-    pub ignore_when: fn(OsString) -> bool,
+    pub ignore_when: fn(&WalkItem) -> bool,
     /// Stop if a item matches the condition
     pub finish_when: fn(&WalkItem) -> bool,
 }
@@ -98,7 +98,7 @@ impl WalkPlan {
     /// # use fast_walker::WalkPlan;
     /// let plan = WalkPlan::new(".").ignore_if(|path| !path.is_ascii());
     /// ```
-    pub fn ignore_if(mut self, f: fn(OsString) -> bool) -> Self {
+    pub fn ignore_if(mut self, f: fn(&WalkItem) -> bool) -> Self {
         self.ignore_when = f;
         self
     }
