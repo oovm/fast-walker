@@ -1,14 +1,14 @@
 use crate::WalkItem;
 use std::{
-    ffi::OsString,
+    collections::VecDeque,
     path::{Path, PathBuf},
 };
 
+pub mod rev_iter;
 pub mod sync_iter;
 #[cfg(feature = "tokio")]
 pub mod tokio_iter;
 
-// IntoIterator<ThreadWalker>
 #[derive(Clone)]
 pub struct WalkPlan {
     /// Initial paths to search
@@ -22,7 +22,7 @@ pub struct WalkPlan {
     /// Number of threads to use
     pub threads: usize,
     /// Check if a directory should be rejected
-    pub reject_when: fn(&Path, usize) -> bool,
+    pub reject_when: fn(&WalkItem) -> bool,
     /// Ignore a file if it matches the condition
     pub ignore_when: fn(&WalkItem) -> bool,
     /// Stop if a item matches the condition
@@ -37,7 +37,7 @@ impl Default for WalkPlan {
             depth_first: false,
             capacity: 256,
             threads: 8,
-            reject_when: |_, _| false,
+            reject_when: |_| false,
             ignore_when: |_| false,
             finish_when: |_| false,
         }
@@ -80,9 +80,9 @@ impl WalkPlan {
     ///
     /// ```
     /// # use fast_walker::WalkPlan;
-    /// let plan = WalkPlan::new(".").reject_if(|path, _| path.starts_with("."));
+    /// let plan = WalkPlan::new(".").reject_if(|item| item.path.starts_with("."));
     /// ```
-    pub fn reject_if(mut self, f: fn(&Path, usize) -> bool) -> Self {
+    pub fn reject_if(mut self, f: fn(&WalkItem) -> bool) -> Self {
         self.reject_when = f;
         self
     }

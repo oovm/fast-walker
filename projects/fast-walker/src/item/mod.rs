@@ -5,54 +5,17 @@ use std::{
     path::PathBuf,
 };
 
+mod convert;
+
 #[derive(Clone, Debug)]
 pub struct WalkItem {
     pub path: PathBuf,
     pub depth: usize,
 }
 
-impl Add<usize> for WalkItem {
-    type Output = Self;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        Self { depth: self.depth + rhs, ..self }
-    }
-}
-
-impl From<PathBuf> for WalkItem {
-    fn from(value: PathBuf) -> Self {
-        Self { path: value, depth: 0 }
-    }
-}
-
-impl From<DirEntry> for WalkItem {
-    fn from(value: DirEntry) -> Self {
-        Self { path: value.path(), depth: 0 }
-    }
-}
-
-// impl Debug for WalkItem {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             WalkItem::File { path } => f.debug_struct("File").field("path", &to_unix_path(path)).finish(),
-//             WalkItem::Directory { path } => f.debug_struct("Directory").field("path", &to_unix_path(path)).finish(),
-//             WalkItem::Error { directory, error } => {
-//                 f.debug_struct("Error").field("directory", &to_unix_path(directory)).field("error", &error).finish()
-//             }
-//         }
-//     }
-// }
-
 impl Display for WalkItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!();
-        // match self {
-        //     WalkItem::File { path } => write_unix_path(f, path),
-        //     WalkItem::Directory { path } => write_unix_path(f, path),
-        //     WalkItem::Error { directory, error } => {
-        //         write!(f, "Error: {} in {}", error, directory.display())
-        //     }
-        // }
+        Display::fmt(&self.path.display(), f)
     }
 }
 

@@ -1,4 +1,10 @@
-use std::path::PathBuf;
+use std::{
+    error::Error,
+    fmt::{Display, Formatter},
+    path::PathBuf,
+};
+
+mod display;
 
 #[derive(Debug)]
 pub struct WalkError {
