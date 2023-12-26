@@ -1,13 +1,14 @@
 use super::*;
-use rayon::ThreadPool;
+
 use std::{
     collections::VecDeque,
     path::PathBuf,
     sync::{
-        mpsc::{channel, sync_channel, Receiver, SendError, Sender, SyncSender, TrySendError},
-        Arc, Mutex, TryLockError,
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex, MutexGuard,
     },
     thread,
+    thread::JoinHandle,
 };
 
 #[derive(Clone)]
@@ -24,67 +25,7 @@ impl ThreadWalker {
         let walker = Self::initialize(plan);
         walker.tasks.lock().unwrap().extend(plan.check_list.iter().cloned());
         for _ in 0..plan.threads {
-            let fork = walker.clone();
-            thread::spawn(move || {
-                'outer: loop {
-                    let path = match fork.pop() {
-                        Some(path) => path,
-                        None => {
-                            break 'outer;
-                        }
-                    };
-
-                    match fork.tasks.try_lock() {
-                        Ok(mut task) => {
-                            let path = if fork.config.depth_first {
-                                match task.pop_back() {
-                                    Some(s) => s,
-                                    None => break 'outer,
-                                }
-                            }
-                            else {
-                                match task.pop_front() {
-                                    Some(s) => s,
-                                    None => break 'outer,
-                                }
-                            };
-                            println!("Catch: {:?}", path);
-                            if path.is_file() {
-                                match fork.result_send.try_lock().unwrap().send(WalkItem::File { path: path.clone() }) {
-                                    Ok(_) => {}
-                                    Err(e) => panic!("{:?}", e),
-                                };
-                                continue 'outer;
-                            }
-                            'inner: for entry in path.read_dir().unwrap() {
-                                match entry {
-                                    Ok(child) => {
-                                        task.push_back(child.path());
-                                    }
-                                    Err(e) => {
-                                        fork.result_send
-                                            .try_lock()
-                                            .unwrap()
-                                            .send(WalkItem::Error { path: path.clone(), error: e })
-                                            .unwrap();
-                                        continue 'inner;
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => match e {
-                            TryLockError::Poisoned(e) => {
-                                panic!("Poisoned");
-                            }
-                            TryLockError::WouldBlock => {
-                                panic!("WouldBlock");
-                            }
-                        },
-                    }
-                }
-            })
-            .join()
-            .unwrap();
+            let _ = walker.clone().spawn().join().unwrap();
         }
         walker
     }
@@ -101,15 +42,45 @@ impl ThreadWalker {
 }
 
 impl ThreadWalker {
-    fn pop(&self) -> Option<PathBuf> {
+    fn spawn(self) -> JoinHandle<()> {
+        thread::spawn(move || {
+            'outer: loop {
+                let (mut tasks, path) = match self.pop() {
+                    Some(o) => o,
+                    None => break 'outer,
+                };
+                println!("Catch: {:?}", path);
+                if path.is_file() {
+                    match self.result_send.try_lock().unwrap().send(WalkItem::File { path: path.clone() }) {
+                        Ok(_) => {}
+                        Err(e) => panic!("{:?}", e),
+                    };
+                    continue 'outer;
+                }
+                'inner: for entry in path.read_dir().unwrap() {
+                    match entry {
+                        Ok(child) => {
+                            tasks.push_back(child.path());
+                        }
+                        Err(e) => {
+                            self.result_send
+                                .try_lock()
+                                .unwrap()
+                                .send(WalkItem::Error { path: path.clone(), error: e })
+                                .unwrap();
+                            continue 'inner;
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    fn pop(&self) -> Option<(MutexGuard<VecDeque<PathBuf>>, PathBuf)> {
         match self.tasks.try_lock() {
             Ok(mut o) => {
-                if self.config.depth_first {
-                    o.pop_back()
-                }
-                else {
-                    o.pop_front()
-                }
+                let path = if self.config.depth_first { o.pop_back()? } else { o.pop_front()? };
+                Some((o, path))
             }
             Err(_) => None,
         }

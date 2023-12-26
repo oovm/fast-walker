@@ -1,8 +1,6 @@
-use crate::utils::{to_unix_path, write_unix_path};
 use std::{
     fmt::{Debug, Display, Formatter},
     fs::DirEntry,
-    path::{Path, PathBuf},
 };
 
 pub struct WalkItem {
