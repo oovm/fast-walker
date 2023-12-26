@@ -1,4 +1,3 @@
-use crate::WalkItem;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -8,6 +7,8 @@ pub mod sync_iter;
 #[cfg(feature = "tokio")]
 pub mod tokio_iter;
 
+// IntoIterator<ThreadWalker>
+#[derive(Clone)]
 pub struct WalkPlan {
     /// Initial paths to search
     pub check_list: Vec<PathBuf>,
@@ -15,15 +16,22 @@ pub struct WalkPlan {
     pub follow_symlinks: bool,
     /// Depth first search or breadth first search
     pub depth_first: bool,
-    /// Max number of items in the queue
+    /// Max number of items in the buffer
     pub capacity: usize,
     /// Number of threads to use
     pub threads: usize,
     /// Check if a directory should be rejected
     pub reject_when: fn(&Path, usize) -> bool,
+    /// Ignore a file if it matches the condition
     pub ignore_when: fn(OsString) -> bool,
     /// Stop if a item matches the condition
     pub finish_when: fn(&WalkItem) -> bool,
+}
+
+pub enum WalkItem {
+    File { path: PathBuf },
+    Directory { path: PathBuf },
+    Error { path: PathBuf, error: std::io::Error },
 }
 
 impl Default for WalkPlan {
