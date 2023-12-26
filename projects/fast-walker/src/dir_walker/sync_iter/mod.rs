@@ -24,8 +24,6 @@ pub struct LinearWalker<'i> {
     found_files: usize,
 }
 
-impl<'i> LinearWalker<'i> {}
-
 impl<'i> LinearWalker<'i> {
     fn pop(&mut self) -> Option<WalkItem> {
         if self.config.depth_first { self.tasks.pop_back() } else { self.tasks.pop_front() }
